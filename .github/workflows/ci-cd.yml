@@ -18,9 +18,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    name: Run tests (Maven)
+    runs-on: ubuntu-latest
+    outputs:
+      maven-cache-key: ${{ steps.cache-m2.outputs.cache-hit }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Maven local repository
+        id: cache-m2
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-m2-
+
+      - name: Run unit tests
+        run: mvn -B -ntp test
+
+      - name: Package artifact (build jar) - required to validate package
+        run: mvn -B -ntp package -DskipTests=true
+
+      - name: Upload built JAR (optional - speeds later steps)
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: target/*.jar
+
   build-image:
     name: Build Docker image (verify build, no push)
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
