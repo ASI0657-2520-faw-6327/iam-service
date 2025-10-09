@@ -1,0 +1,34 @@
+version: "3.8"
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: nango-iam-service-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root1234
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  iam-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: nango-iam-service
+    volumes:
+      - ./:/app
+    env_file:
+      - .env/.env.development
+    ports:
+      - "${SERVER_PORT:-8081}:8081"
+    depends_on:
+      - mysql
+    restart: unless-stopped
