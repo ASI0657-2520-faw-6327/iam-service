@@ -15,20 +15,25 @@ public class JwtUtil {
 
     private final Key key = Keys.hmacShaKeyFor("01234567890123456789012345678901".getBytes());
 
-    public String extractUsername(String token) {
+    public String extractSubject(String token) {
         return extractClaim(token, Claims::getSubject);
     }
 
     public Long extractUserId(String token) {
         Claims claims = extractAllClaims(token);
-        Object userId = claims.get("userId");
-        if (userId instanceof Integer) {
-            return ((Integer) userId).longValue();
-        } else if (userId instanceof Long) {
-            return (Long) userId;
-        } else {
+        Object sub = claims.getSubject();
+
+        try {
+            return Long.parseLong(sub.toString());
+        } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    public String extractUsername(String token) {
+        Claims claims = extractAllClaims(token);
+        Object username = claims.get("username");
+        return username != null ? username.toString() : null;
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
@@ -44,40 +49,30 @@ public class JwtUtil {
                 .getBody();
     }
 
-    public String generateToken(String username, Set<Role> roles) {
-        Map<String, Object> claims = new HashMap<>();
-        List<String> roleNames = new ArrayList<>();
-        for (Role role : roles) {
-            roleNames.add(role.getName());
-        }
-        claims.put("roles", roleNames);
-        return createToken(claims, username);
-    }
-
     public String generateToken(Long userId, String username, Set<Role> roles) {
         Map<String, Object> claims = new HashMap<>();
         List<String> roleNames = new ArrayList<>();
         for (Role role : roles) {
             roleNames.add(role.getName());
         }
-        claims.put("roles", roleNames);
-        claims.put("userId", userId);
-        return createToken(claims, username);
-    }
 
-    private String createToken(Map<String, Object> claims, String subject) {
+        claims.put("roles", roleNames);
+        claims.put("username", username);
+
         return Jwts.builder()
                 .setClaims(claims)
-                .setSubject(subject)
+                .setSubject(userId.toString())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) // 10 horas
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 10)) 
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
     }
 
     public Boolean validateToken(String token, UserDetails userDetails) {
         final String username = extractUsername(token);
-        return (username.equals(userDetails.getUsername()) && !isTokenExpired(token));
+        return (username != null &&
+                username.equals(userDetails.getUsername()) &&
+                !isTokenExpired(token));
     }
 
     private Boolean isTokenExpired(String token) {
