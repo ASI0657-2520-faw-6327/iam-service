@@ -52,20 +52,25 @@ public class AuthService {
 
         userRepository.save(user);
 
-        String token = jwtUtil.generateToken(user.getUsername(), user.getRoles());
+        String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRoles());
+
         return new AuthResponse(user.getUsername(), token);
     }
 
     public AuthResponse login(AuthRequest request) {
         try {
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                    new UsernamePasswordAuthenticationToken(
+                            request.getUsername(),
+                            request.getPassword()
+                    )
             );
 
             User user = userRepository.findByUsername(request.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            String token = jwtUtil.generateToken(user.getUsername(), user.getRoles());
+            String token = jwtUtil.generateToken(user.getId(), user.getUsername(), user.getRoles());
+
             return new AuthResponse(user.getUsername(), token);
 
         } catch (AuthenticationException e) {
